@@ -1,13 +1,11 @@
-import { ConnectWallet, ChainId, embeddedWallet, smartWallet, useAddress, useConnect } from "@thirdweb-dev/react";
+import { ConnectWallet, ChainId, embeddedWallet, smartWallet, useAddress, useConnect, useEmbeddedWallet } from "@thirdweb-dev/react";
 import styles from "../styles/Home.module.css";
 import { NextPage } from "next";
 import { ACCOUNT_FACTORY_ADDRESS } from "../constants/addresses";
 import React, { useState } from 'react';
 
-// Embedded Wallet Configuration
+
 const embeddedWalletConfig = embeddedWallet({});
-
-
 const smartWalletConfig = smartWallet(embeddedWalletConfig, {
   factoryAddress: ACCOUNT_FACTORY_ADDRESS,
   gasless: true, 
@@ -15,57 +13,65 @@ const smartWalletConfig = smartWallet(embeddedWalletConfig, {
 
 const Home: NextPage = () => {
   const address = useAddress();
-  const connect = useConnect();
+  const { connect, sendVerificationEmail } = useEmbeddedWallet();
 
   const [emailInput, setEmailInput] = useState("");
-  const [personalWalletAddress, setPersonalWalletAddress] = useState<string | undefined>("undefined");
-  const [smartWalletAddress, setSmartWalletAddress] = useState<string | undefined>("undefined");
+  const [verificationCode, setVerificationCode] = useState("");
 
-  const handleLogin = async () => {
-    try {
-      const personalWallet = await connect(embeddedWalletConfig, {
-        chainId: 420,
-        loginType: "ui_email_otp",
-        email: emailInput,
-      });
-  
-      const personalWalletAddress = await personalWallet.getAddress();
-      setPersonalWalletAddress(personalWalletAddress);
-  
-      const smartWalletInstance = await connect(smartWalletConfig, {
-        personalWallet: personalWallet,
-        chainId: 420,
-      });
-  
-      const smartWalletAddressVal = await smartWalletInstance.getAddress();
-      setSmartWalletAddress(smartWalletAddressVal);
-      setEmailInput("");
-  
-    } catch (error) {
-      console.error(error);
-    }
-  };  
+  const preLogin = async (email: string) => {
+    await sendVerificationEmail({ email });
+  };
+
+  const handleLogin = async (email: string, verificationCode: string) => {
+    await connect({
+      strategy: "email_verification",
+      email,
+      verificationCode,
+    });
+  };
 
   return (
     <main className={styles.main}>
       <div className={styles.container}>
         {address ? (
-
-        <>
-            <ConnectWallet/> 
-        </>
+          // If address is present, show the ConnectWallet button
+          <ConnectWallet className={styles.web3Button}/> 
         ) : (
+          // Otherwise, show the login form
           <div className={styles.centeredContainer}>
             <div className={styles.centeredCard}>
-              <h1>Login</h1>
-              <p>Enter your email to login.</p>
+            <h1 className={styles.title}>Login</h1>
+              <p>Enter your email to receive a verification code.</p>
+              
+              {/* Email input field */}
               <input
-                type="email"
-                placeholder="Enter your email"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-              />
-              <button onClick={handleLogin}> Login </button>
+    className={styles.inputField}
+    type="email"
+    placeholder="Enter your email"
+    value={emailInput}
+    onChange={(e) => setEmailInput(e.target.value)}
+/>
+              
+              {/* Send Verification Email button */}
+              <button className={styles.button} onClick={() => preLogin(emailInput)}>
+                Send Verification Email 
+              </button>
+              
+              <p>Enter the verification code you received.</p>
+              
+              {/* Verification code input field */}
+              <input
+    className={styles.inputField}
+    type="text"
+    placeholder="Enter verification code"
+    value={verificationCode}
+    onChange={(e) => setVerificationCode(e.target.value)}
+/>
+              
+              {/* Login button */}
+              <button className={styles.button} onClick={() => handleLogin(emailInput, verificationCode)}>
+                Login 
+              </button>
             </div>
           </div>
         )}
